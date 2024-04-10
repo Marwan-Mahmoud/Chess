@@ -5,14 +5,17 @@
 #include <fcntl.h>
 #include <io.h>
 
+#define WHITE BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY
+#define BLACK FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED
+
 // Initial Board
 char board [8][8] = {
     {'r','n','b','q','k','b','n','r'},
     {'p','p','p','p','p','p','p','p'},
-    {'.','-','.','-','.','-','.','-'},
-    {'-','.','-','.','-','.','-','.'},
-    {'.','-','.','-','.','-','.','-'},
-    {'-','.','-','.','-','.','-','.'},
+    {' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' '},
     {'P','P','P','P','P','P','P','P'},
     {'R','N','B','Q','K','B','N','R'}};
 
@@ -52,6 +55,8 @@ struct saveData{
     int castling[6];
     int counter;
 }data;
+
+void printBoard ();
 
 void save(){
     FILE *fp;
@@ -93,101 +98,169 @@ void load(){
     for(int i = 0; i < 6; i++)
         castling[i] = undoCastling[counter][i] = data.castling[i];
     fclose(fp);
+    printBoard();
+}
+
+void undo(){
+    if(counter > firstUndo){
+        counter--;
+        turn = turn == 0;
+        for(int y = 0; y < 8; y++){
+            for(int x = 0; x < 8; x++)
+                board[y][x] = undoBoard[counter][y][x];
+        }
+        numTaken = undoTaken[counter];
+        check = undoCheck[counter];
+        for(int i = 0; i < 6; i++)
+            castling[i] = undoCastling[counter][i];
+        printBoard();
+    }
 }
 
 int valid(int x1, int y1, int x2, int y2);
 
-int checkInput(char in[], char str[]){
-    int i;
-    for(i = 0; i < 4; i++){
-        if(in[i] != str[i])
+int updateBoard(int x1, int y1, int x2, int y2);
+
+void printPiece (char p, int t);
+
+void drawButton(int key, int color){
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    COORD coord;
+    char word[4];
+    switch(key){
+        case 0:
+            coord.X = 63;
+            for(int i = 0; i < 4; i++)
+                word[i] = "Undo"[i];
             break;
+        case 1:
+            coord.X = 77;
+            for(int i = 0; i < 4; i++)
+                word[i] = "Save"[i];
+            break;
+        case 2:
+            coord.X = 91;
+            for(int i = 0; i < 4; i++)
+                word[i] = "Load"[i];
+            break;
+        default:
+            coord.X = 75 + (key - 3) * 4;
     }
-    if(i == 4 && in[4] == '\n')
-        return 1;
-    return 0;
+    SetConsoleTextAttribute(hOutput, BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | (BACKGROUND_INTENSITY * color));
+    if (key < 3){
+        coord.Y = 18;
+        SetConsoleCursorPosition(hOutput, coord);
+        wprintf(L"\x250F\x2501\x2501\x2501\x2501\x2501\x2501\x2501\x2501\x2501\x2513 ");
+        coord.Y++;
+        SetConsoleCursorPosition(hOutput, coord);
+        wprintf(L"\x2503   ");
+        for(int i = 0; i < 4; i++)
+            wprintf(L"%c", word[i]);
+        wprintf(L"  \x2503 ");
+        coord.Y++;
+        SetConsoleCursorPosition(hOutput, coord);
+        wprintf(L"\x2517\x2501\x2501\x2501\x2501\x2501\x2501\x2501\x2501\x2501\x251B ");
+    }
+    else {
+        char piece = turn == 0 ? whitePieces[key - 2] : blackPieces[key - 2];
+        coord.Y = 23;
+        SetConsoleCursorPosition(hOutput, coord);
+        wprintf(L"    ");
+        coord.Y++;
+        SetConsoleCursorPosition(hOutput, coord);
+        wprintf(L" ");
+        printPiece(piece, 0);
+        wprintf(L" ");
+        coord.Y++;
+        SetConsoleCursorPosition(hOutput, coord);
+        wprintf(L"    ");
+    }
+    SetConsoleTextAttribute(hOutput, BLACK);
 }
 
 void castle(int c){
     switch(c){
         case 0:
-            board[7][4] = '-';
-            board[7][7] = '.';
+            board[7][4] = board[7][7] = ' ';
             board[7][6] = 'K';
             board[7][5] = 'R';
-            turn = (turn == 0)?1:0;
+            turn = turn == 0;
             for(int y1 = 0; y1 < 8; y1++){
                 for(int x1 = 0; x1 < 8; x1++){
                     if(valid(x1, y1, 6, 7) || valid(x1, y1, 5, 7)){
                         board[7][4] = 'K';
                         board[7][7] = 'R';
-                        board[7][6] = '-';
-                        board[7][5] = '.';
-                        turn = (turn == 0)?1:0;
+                        board[7][6] = board[7][5] = ' ';
+                        turn = turn == 0;
                         return;
                     }
                 }
             }
+            counter++;
+            updateBoard(4, 7, 6, 7);
+            updateBoard(7, 7, 5, 7);
             break;
         case 1:
-            board[7][4] = '-';
-            board[7][0] = '-';
+            board[7][4] = board[7][0] = ' ';
             board[7][2] = 'K';
             board[7][3] = 'R';
-            turn = (turn == 0)?1:0;
+            turn = turn == 0;
             for(int y1 = 0; y1 < 8; y1++){
                 for(int x1 = 0; x1 < 8; x1++){
                     if(valid(x1, y1, 2, 7) || valid(x1, y1, 3, 7)){
                         board[7][4] = 'K';
                         board[7][0] = 'R';
-                        board[7][2] = '-';
-                        board[7][3] = '.';
-                        turn = (turn == 0)?1:0;
+                        board[7][2] = board[7][3] = ' ';
+                        turn = turn == 0;
                         return;
                     }
                 }
             }
+            counter++;
+            updateBoard(4, 7, 2, 7);
+            updateBoard(0, 7, 3, 7);
             break;
         case 2:
-            board[0][4] = '.';
-            board[0][7] = '-';
+            board[0][4] = board[0][7] = ' ';
             board[0][6] = 'k';
             board[0][5] = 'r';
-            turn = (turn == 0)?1:0;
+            turn = turn == 0;
             for(int y1 = 0; y1 < 8; y1++){
                 for(int x1 = 0; x1 < 8; x1++){
                     if(valid(x1, y1, 6, 0) || valid(x1, y1, 5, 0)){
                         board[0][4] = 'k';
                         board[0][7] = 'r';
-                        board[0][6] = '.';
-                        board[0][5] = '-';
-                        turn = (turn == 0)?1:0;
+                        board[0][6] = board[0][5] = ' ';
+                        turn = turn == 0;
                         return;
                     }
                 }
             }
+            counter++;
+            updateBoard(4, 0, 6, 0);
+            updateBoard(7, 0, 5, 0);
             break;
         case 3:
-            board[0][4] = '.';
-            board[0][0] = '.';
+            board[0][4] = board[0][0] = ' ';
             board[0][2] = 'k';
             board[0][3] = 'r';
-            turn = (turn == 0)?1:0;
+            turn = turn == 0;
             for(int y1 = 0; y1 < 8; y1++){
                 for(int x1 = 0; x1 < 8; x1++){
                     if(valid(x1, y1, 2, 0) || valid(x1, y1, 3, 0)){
                         board[0][4] = 'k';
                         board[0][0] = 'r';
-                        board[0][2] = '.';
-                        board[0][3] = '-';
-                        turn = (turn == 0)?1:0;
+                        board[0][2] = board[0][3] = ' ';
+                        turn = turn == 0;
                         return;
                     }
                 }
             }
+            counter++;
+            updateBoard(4, 0, 2, 0);
+            updateBoard(0, 0, 3, 0);
             break;
     }
-    counter++;
     for(int y = 0; y < 8; y++){
         for(int x = 0; x < 8; x++)
             undoBoard[counter][y][x] = board[y][x];
@@ -199,51 +272,144 @@ void castle(int c){
 }
 
 // Get coordinate
-void getCoor(char s[], int coor[]){
-    int x1, y1, x2, y2;
-    coor[4] = 8;
-    for(x1 = 0; x1 < 8; x1++){
-        if(s[0] == x[x1])
-            break;
-    }
-    for(y1 = 0; y1 < 8; y1++){
-        if(s[1] == y[y1])
-            break;
-    }
-    for(x2 = 0; x2 < 8; x2++){
-        if(s[2] == x[x2])
-            break;
-    }
-    for(y2 = 0; y2 < 8; y2++){
-        if(s[3] == y[y2])
-            break;
-    }
-    if(s[4] == '\n')
-        coor[4] = 0;
-    else{
-        switch(turn){
-            case 0:
-                for(int i = 1; i < 5; i++){
-                    if(toupper(s[4]) == whitePieces[i]){
-                        coor[4] = 1;
-                        break;
-                    }
-                }
+void getCoor(int coor[], char *p){
+    INPUT_RECORD InputRecord;
+    DWORD Events;
+    COORD coord;
+    static COORD prev;
+    static int iprev, jprev;
+    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    ReadConsoleInput(hInput, &InputRecord, 1, &Events);
+    coord.X = InputRecord.Event.MouseEvent.dwMousePosition.X;
+    coord.Y = InputRecord.Event.MouseEvent.dwMousePosition.Y;
+    static int printButton = 11;
+    for(int i = 0; i < 3; i++){
+        if(coord.X >= (63 + i*14) && coord.X <= (74 + i*14) && coord.Y >= 18 && coord.Y <= 21){
+            if (printButton == 11){
+                printButton = i;
+                drawButton(i, 0);
                 break;
-            case 1:
-                for(int i = 1; i < 5; i++){
-                    if(tolower(s[4]) == blackPieces[i]){
-                        coor[4] = 1;
+            }
+            if(InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED){
+                switch (i){
+                    case 0:
+                        undo();
                         break;
-                    }
+                    case 1:
+                        save();
+                        break;
+                    case 2:
+                        load();
+                        break;
                 }
-                break;
+            }
         }
     }
-    coor[0] = x1;
-    coor[1] = y1;
-    coor[2] = x2;
-    coor[3] = y2;
+    if(printButton != 11 && !(coord.X >= (63 + printButton*14) && coord.X <= (74 + printButton*14) && coord.Y >= 18 && coord.Y <= 21)){
+        drawButton(printButton, 1);
+        printButton = 11;
+    }
+    if(InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED){
+        coord.X = InputRecord.Event.MouseEvent.dwMousePosition.X;
+        coord.Y = InputRecord.Event.MouseEvent.dwMousePosition.Y;
+        for(int y = 0; y < 8; y++){
+            for(int x = 0; x < 8; x++){
+                if(coord.X >= (4 + x*6) && coord.X <= (9 + x*6) && coord.Y >= (2 + y*3) && coord.Y <= (4 + y*3)){
+                    if(prev.X){
+                        SetConsoleCursorPosition(hOutput, prev);
+                        (iprev + jprev) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE) : SetConsoleTextAttribute(hOutput, BLACK);
+                        wprintf(L"      ");
+                        prev.Y += 2;
+                        SetConsoleCursorPosition(hOutput, prev);
+                        wprintf(L"      ");
+                        prev.Y--;
+                        SetConsoleCursorPosition(hOutput, prev);
+                        wprintf(L" ");
+                        prev.X += 5;
+                        SetConsoleCursorPosition(hOutput, prev);
+                        wprintf(L" ");
+                    }
+                    coord.X = prev.X = 4 + x*6; coord.Y = prev.Y = 2 + y*3;
+                    iprev = y; jprev = x;
+                    SetConsoleCursorPosition(hOutput, coord);
+                    SetConsoleTextAttribute(hOutput, ((BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE | BACKGROUND_INTENSITY) * !((y + x) % 2)) | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+                    wprintf(L"\x2588\x2580\x2580\x2580\x2580\x2588");
+                    coord.Y += 2;
+                    SetConsoleCursorPosition(hOutput, coord);
+                    wprintf(L"\x2588\x2584\x2584\x2584\x2584\x2588");
+                    coord.Y--;
+                    SetConsoleCursorPosition(hOutput, coord);
+                    wprintf(L"\x2588");
+                    coord.X += 5;
+                    SetConsoleCursorPosition(hOutput, coord);
+                    wprintf(L"\x2588");
+                    if(coor[0] == 8){
+                        coor[0] = x;
+                        coor[1] = y;
+                    }
+                    else{
+                        coor[2] = x;
+                        coor[3] = y;
+                    }
+                }
+            }
+        }
+    }
+    if(((board[coor[1]][coor[0]] == 'P' && turn == 0 && coor[3] == 0) || (board[coor[1]][coor[0]] == 'p' && turn == 1 && coor[3] == 7)) && valid(coor[0], coor[1], coor[2], coor[3])){
+        drawButton(3, 1);
+        drawButton(4, 1);
+        drawButton(5, 1);
+        drawButton(6, 1);
+        coor[4] = 1;
+        while (1){
+            ReadConsoleInput(hInput, &InputRecord, 1, &Events);
+            coord.X = InputRecord.Event.MouseEvent.dwMousePosition.X;
+            coord.Y = InputRecord.Event.MouseEvent.dwMousePosition.Y;
+            for(int i = 0; i < 4; i++){
+                if(coord.X >= (75 + i*4) && coord.X <= (78 + i*4) && coord.Y >= 23 && coord.Y <= 25){
+                    if (printButton == 11){
+                        printButton = i + 3;
+                        drawButton(printButton, 0);
+                        break;
+                    }
+                    if(InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED){
+                        switch (i){
+                            case 0:
+                                *p = turn == 0 ? 'R':'r';
+                                break;
+                            case 1:
+                                *p = turn == 0 ? 'N':'n';
+                                break;
+                            case 2:
+                                *p = turn == 0 ? 'B':'b';
+                                break;
+                            case 3:
+                                *p = turn == 0 ? 'Q':'q';
+                                break;
+                        }
+                        printButton = 11;
+                        coord.X = 75; coord.Y = 23;
+                        SetConsoleCursorPosition(hOutput, coord);
+                        wprintf(L"                ");
+                        coord.Y++;
+                        SetConsoleCursorPosition(hOutput, coord);
+                        wprintf(L"                ");
+                        coord.Y++;
+                        SetConsoleCursorPosition(hOutput, coord);
+                        wprintf(L"                ");
+                        return;
+                    }
+                }
+            }
+            if(printButton != 11 && !(coord.X >= (75 + (printButton - 3)*4) && coord.X <= (78 + (printButton - 3)*4) && coord.Y >= 23 && coord.Y <= 25)){
+                drawButton(printButton, 1);
+                printButton = 11;
+            }
+        }
+    }
+    else
+        coor[4] = 0;
 }
 
 // To prevent killing pieces of the same color
@@ -276,12 +442,12 @@ int checkOppPiece(int x1, int y1, int x2, int y2){
 int checkPawnMove(int x1, int y1, int x2, int y2){
     switch(turn){
         case 0:
-            if((y2 == y1 - 1) && (x1 == x2) && ((board[y2][x2] == '-') || (board[y2][x2] == '.')))
+            if((y2 == y1 - 1) && (x1 == x2) && (board[y2][x2] == ' '))
                 return 1;
             else if((y2 == y1 - 2) && (y1 == 6) && (x1 == x2)){
                 int valid = 1;
                 for(int i = y1 - 1; i >= y2; i--){
-                    if(!((board[i][x1] == '-') || (board[i][x1] == '.'))){
+                    if(!(board[i][x1] == ' ')){
                         valid = 0;
                         break;
                     }
@@ -313,12 +479,12 @@ int checkPawnMove(int x1, int y1, int x2, int y2){
             }
             break;
         case 1:
-            if((y2 == y1 + 1) && (x1 == x2) && ((board[y2][x2] == '-') || (board[y2][x2] == '.')))
+            if((y2 == y1 + 1) && (x1 == x2) && (board[y2][x2] == ' '))
                 return 1;
             else if((y2 == y1 + 2) && (y1 == 1) && (x1 == x2)){
                 int valid = 1;
                 for(int i = y1 + 1; i <= y2; i++){
-                    if(!((board[i][x1] == '-') || (board[i][x1] == '.'))){
+                    if(!(board[i][x1] == ' ')){
                         valid = 0;
                         break;
                     }
@@ -357,7 +523,7 @@ int checkRookMove(int x1, int y1, int x2, int y2){
     int valid1 = 1, valid2 = 0;
     if((x2 > x1) && (y1 == y2)){
         for(int i = x1 + 1; i < x2; i++){
-            if(!((board[y1][i] == '-') || (board[y1][i] == '.'))){
+            if(!(board[y1][i] == ' ')){
                 valid1 = 0;
                 break;
             }
@@ -368,9 +534,9 @@ int checkRookMove(int x1, int y1, int x2, int y2){
     }
     else if((x2 < x1) && (y1 == y2)){
         for(int i = x1 - 1; i > x2; i--){
-            if(!((board[y1][i] == '-') || (board[y1][i] == '.'))){
-                    valid1 = 0;
-                    break;
+            if(!(board[y1][i] == ' ')){
+                valid1 = 0;
+                break;
             }
         }
         valid2 = checkOppPiece(x1, y1, x2, y2);
@@ -379,9 +545,9 @@ int checkRookMove(int x1, int y1, int x2, int y2){
     }
     else if((x2 == x1) && (y1 < y2)){
         for(int i = y1 + 1; i < y2; i++){
-            if(!((board[i][x1] == '-') || (board[i][x1] == '.'))){
-                    valid1 = 0;
-                    break;
+            if(!(board[i][x1] == ' ')){
+                valid1 = 0;
+                break;
             }
         }
         valid2 = checkOppPiece(x1, y1, x2, y2);
@@ -390,7 +556,7 @@ int checkRookMove(int x1, int y1, int x2, int y2){
     }
     else if((x2 == x1) && (y1 > y2)){
         for(int i = y1 - 1; i > y2; i--){
-            if(!((board[i][x1] == '-') || (board[i][x1] == '.'))){
+            if(!(board[i][x1] == ' ')){
                 valid1 = 0;
                 break;
             }
@@ -424,7 +590,7 @@ int checkBishopMove(int x1, int y1, int x2, int y2){
         int valid1 = 1, valid2 = 0;
         if((x2 > x1) && ( y2 > y1)){
             for(int i = 1; i < abs(x2 - x1); i++){
-                if(!((board[y1 + i][x1 + i] == '-') || (board[y1 + i][x1 + i] == '.'))){
+                if(!(board[y1 + i][x1 + i] == ' ')){
                     valid1 = 0;
                     break;
                 }
@@ -435,7 +601,7 @@ int checkBishopMove(int x1, int y1, int x2, int y2){
         }
         else if((x2 > x1) && (y2 < y1)){
             for(int i = 1; i < abs(x2 - x1); i++){
-                if(!((board[y1 - i][x1 + i] == '-')||(board[y1 - i][x1 + i] == '.'))){
+                if(!(board[y1 - i][x1 + i] == ' ')){
                     valid1 = 0;
                     break;
                 }
@@ -446,7 +612,7 @@ int checkBishopMove(int x1, int y1, int x2, int y2){
         }
         else if((x2 < x1) && (y2 > y1)){
             for(int i = 1; i < abs(x2 - x1); i++){
-                if(!((board[y1 + i][x1 - i] == '-')||(board[y1 + i][x1 - i] == '.'))){
+                if(!(board[y1 + i][x1 - i] == ' ')){
                     valid1 = 0;
                     break;
                 }
@@ -457,7 +623,7 @@ int checkBishopMove(int x1, int y1, int x2, int y2){
         }
         else if((x2 < x1) && (y2 < y1)){
             for(int i = 1; i < abs(x2 - x1); i++){
-                if(!((board[y1 - i][x1 - i] == '-') || (board[y1 - i][x1 - i] == '.'))){
+                if(!(board[y1 - i][x1 - i] == ' ')){
                     valid1 = 0;
                     break;
                 }
@@ -482,15 +648,15 @@ int checkKingMove(int x1, int y1, int x2, int y2){
     }
     switch(turn){
         case 0:
-            if(x1 == 4 && y1 == 7 && x2 == 6 && y2 == 7 && castling[4] == 0 && castling[5] == 0 && board[7][5] == '.' && board[7][6] == '-')
+            if(x1 == 4 && y1 == 7 && x2 == 6 && y2 == 7 && castling[4] == 0 && castling[5] == 0 && board[7][5] == ' ' && board[7][6] == ' ')
                 castle(0);
-            else if(x1 == 4 && y1 == 7 && x2 == 2 && y2 == 7 && castling[4] == 0 && castling[3] == 0 && board[7][3] == '.' && board[7][2] == '-' && board[7][1] == '.')
+            else if(x1 == 4 && y1 == 7 && x2 == 2 && y2 == 7 && castling[4] == 0 && castling[3] == 0 && board[7][3] == ' ' && board[7][2] == ' ' && board[7][1] == ' ')
                 castle(1);
             break;
         case 1:
-            if(x1 == 4 && y1 == 0 && x2 == 6 && y2 == 0 && castling[1] == 0 && castling[2] == 0 && board[0][5] == '-' && board[0][6] == '.')
+            if(x1 == 4 && y1 == 0 && x2 == 6 && y2 == 0 && castling[1] == 0 && castling[2] == 0 && board[0][5] == ' ' && board[0][6] == ' ')
                 castle(2);
-            else if(x1 == 4 && y1 == 0 && x2 == 2 && y2 == 0 && castling[1] == 0 && castling[0] == 0 && board[0][3] == '-' && board[0][2] == '.' && board[0][1] == '-')
+            else if(x1 == 4 && y1 == 0 && x2 == 2 && y2 == 0 && castling[1] == 0 && castling[0] == 0 && board[0][3] == ' ' && board[0][2] == ' ' && board[0][1] == ' ')
                 castle(3);
             break;
     }
@@ -607,40 +773,27 @@ int promotion(int x2, int y2, char pieceSwap){
     return 0;
 }
 
-void move(int x1, int y1, int x2, int y2, int coor4, char s4){
+void move(int x1, int y1, int x2, int y2, int coor4, char pieceSwap){
     char temp;
+    if(board[y2][x2] != ' '){
+        taken[numTaken] = board[y2][x2];
+        numTaken++;
+    }
+    temp = board[y2][x2];
+    board[y2][x2] = board[y1][x1];
+    board[y1][x1] = ' ';
+    turn = turn == 0;
+    check = isCheck();
+    turn = turn == 0;
     // Promotion piece is given? 1:0
     if(coor4 == 0){
-        if((board[y1][x1] == 'P' && turn == 0 && y2 == 0) || (board[y1][x1] == 'p' && turn == 1 && y2 == 7))
-            return;
-        if(board[y2][x2] != '-' && board[y2][x2] != '.'){
-            taken[numTaken] = board[y2][x2];
-            numTaken++;
-        }
-        temp = board[y2][x2];
-        board[y2][x2] = board[y1][x1];
-        board[y1][x1] = ((y1 + x1) % 2 == 0)?'.':'-';
-        turn = (turn == 0)?1:0;
-        check = isCheck();
-        turn = (turn == 0)?1:0;
         if(check == 1){
             board[y1][x1] = board[y2][x2];
             board[y2][x2] = temp;
-            if(board[y2][x2] != '-' && board[y2][x2] != '.')
+            if(board[y2][x2] != ' ')
                 numTaken--;
             return;
         }
-        check = isCheck();
-        turn = (turn == 0)?1:0;
-        counter++;
-        for(int y = 0; y < 8; y++){
-            for(int x = 0; x < 8; x++)
-                undoBoard[counter][y][x] = board[y][x];
-        }
-        undoTaken[counter] = numTaken;
-        undoCheck[counter] = check;
-        for(int i = 0; i < 6; i++)
-            undoCastling[counter][i] = castling[i];
         if(x1 == 0 && y1 ==0)
             castling[0] = 1;
         else if(x1 == 4 && y1 ==0)
@@ -655,50 +808,25 @@ void move(int x1, int y1, int x2, int y2, int coor4, char s4){
             castling[5] = 1;
     }
     else{
-        if(board[y2][x2] != '-' && board[y2][x2] != '.'){
-            taken[numTaken] = board[y2][x2];
-            numTaken++;
-        }
-        temp = board[y2][x2];
-        board[y2][x2] = board[y1][x1];
-        board[y1][x1] = ((y1 + x1) % 2 == 0)?'.':'-';
-        turn = (turn == 0)?1:0;
-        check = isCheck();
-        turn = (turn == 0)?1:0;
-        if(check == 1 || promotion(x2, y2, s4) == 0){
+        if(check == 1 || promotion(x2, y2, pieceSwap) == 0){
             board[y1][x1] = board[y2][x2];
             board[y2][x2] = temp;
-            if(board[y2][x2] != '-' && board[y2][x2] != '.')
+            if(board[y2][x2] != ' ')
                 numTaken--;
             return;
         }
-        check = isCheck();
-        turn = (turn == 0)?1:0;
-        counter++;
-        for(int y = 0; y < 8; y++){
-            for(int x = 0; x < 8; x++)
-                undoBoard[counter][y][x] = board[y][x];
-        }
-        undoTaken[counter] = numTaken;
-        undoCheck[counter] = check;
-        for(int i = 0; i < 6; i++)
-            undoCastling[counter][i] = castling[i];
     }
-}
-
-void undo(){
-    if(counter > firstUndo){
-        counter--;
-        turn = (turn == 0)?1:0;
-        for(int y = 0; y < 8; y++){
-            for(int x = 0; x < 8; x++)
-                board[y][x] = undoBoard[counter][y][x];
-        }
-        numTaken = undoTaken[counter];
-        check = undoCheck[counter];
-        for(int i = 0; i < 6; i++)
-            castling[i] = undoCastling[counter][i];
+    check = isCheck();
+    turn = turn == 0;
+    counter++;
+    for(int y = 0; y < 8; y++){
+        for(int x = 0; x < 8; x++)
+            undoBoard[counter][y][x] = board[y][x];
     }
+    undoTaken[counter] = numTaken;
+    undoCheck[counter] = check;
+    for(int i = 0; i < 6; i++)
+        undoCastling[counter][i] = castling[i];
 }
 
 int checkMate(){
@@ -715,18 +843,18 @@ int checkMate(){
                                     if(valid(i, j, k, m)){
                                         temp2 = board[m][k];
                                         temp1 = board [j][i];
-                                        board [j][i] = '-';
+                                        board [j][i] = ' ';
                                         board [m][k] = temp1;
-                                        turn = (turn == 0)?1:0;
+                                        turn = turn == 0;
                                         if(!(isCheck())){
                                             board [j][i] = board[m][k];
                                             board [m][k] = temp2;
-                                            turn = (turn == 0)?1:0;
+                                            turn = turn == 0;
                                             return 0;
                                         }
                                         board [j][i] = board [m][k];
                                         board [m][k] = temp2;
-                                        turn = (turn == 0)?1:0;
+                                        turn = turn == 0;
                                     }
                                 }
                             }
@@ -745,18 +873,18 @@ int checkMate(){
                                    if(valid(i, j, k, m)){
                                         temp2 = board [m][k];
                                         temp1 = board [j][i];
-                                        board [j][i] = '-';
+                                        board [j][i] = ' ';
                                         board [m][k] = temp1;
-                                        turn = (turn == 0)?1:0;
+                                        turn = turn == 0;
                                         if(!(isCheck())){
                                             board [j][i] = board [m][k];
                                             board [m][k] = temp2;
-                                            turn = (turn == 0)?1:0;
+                                            turn = turn == 0;
                                             return 0;
                                         }
                                         board [j][i] = board[m][k];
                                         board [m][k] = temp2;
-                                        turn = (turn == 0)?1:0;
+                                        turn = turn == 0;
                                    }
                                 }
                             }
@@ -811,56 +939,24 @@ int staleMate(){
 }
 
 int getInput(){
-    COORD coord;
-    coord.X = 65; coord.Y = 24;
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
-
-    if(counter == 80){
-        wprintf(L"Draw");
-        return 1;
-    }
-    if(staleMate())
-        return 1;
-    if(check){
-        if(!(checkMate())){
-            wprintf(L"Check king");
-            coord.X = 65; coord.Y = 25;
-            SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
-        }
-        else{
-            turn == 0 ? wprintf(L"Black Wins"):wprintf(L"White wins");
-            return 1;
-        }
-    }
-
-    turn == 0 ? wprintf(L"White's turn: "):wprintf(L"Black's turn: ");
-    char s[6];
-    fgets(s, 6, stdin);
-    fflush(stdin);
-    for(int i = 0; i < 4; i++)
-        s[i] = toupper(s[i]);
-
-    if(checkInput(s, "UNDO")){
-        undo();
-        return 0;
-    }
-    if(checkInput(s, "SAVE")){
-        save();
-        return 0;
-    }
-    if(checkInput(s, "LOAD")){
-        load();
-        return 0;
-    }
-
-    int coor[5];
-    getCoor(s, coor);
+    static int coor[5] = {8, 8, 8, 8, 0};
+    char p;
+    getCoor(coor, &p);
     for(int i = 0; i < 5; i++){
         if(coor[i] == 8)
             return 0;
     }
-    if(valid(coor[0], coor[1], coor[2], coor[3]))
-        move(coor[0], coor[1], coor[2], coor[3], coor[4], s[4]);
+    int returnValue;
+    if(valid(coor[0], coor[1], coor[2], coor[3])){
+        move(coor[0], coor[1], coor[2], coor[3], coor[4], p);
+        returnValue = updateBoard(coor[0], coor[1], coor[2], coor[3]);
+        coor[0] = coor[1] = coor[2] = coor[3] = 8;
+        return returnValue;
+    }
+    else{
+        coor[0] = coor[2];
+        coor[1] = coor[3];
+    }
     return 0;
 }
 
@@ -909,98 +1005,167 @@ void printPiece (char p, int t){
 }
 
 void printBoard (){
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    COORD coord;
     int i, j;
-    wprintf(L"       ");
+    coord.X = 0; coord.Y = 0;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"%d      ", counter);
     for(i = 0; i < 8; i++)
         wprintf(L"%c     ", x[i]);
     wprintf(L"\n\n");
     for(i = 0; i < 8; i++){
         wprintf(L"    ");
         for(j = 0; j < 8; j++){
-            if((i + j) % 2 == 0)
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY);
-            else
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+            (i + j) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE) : SetConsoleTextAttribute(hOutput, BLACK);
             wprintf(L"      ");
         }
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+        SetConsoleTextAttribute(hOutput, BLACK);
         wprintf(L"\n%c   ", y[i]);
         for(j = 0; j < 8; j++){
-            if((i + j) % 2 == 0)
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY);
-            else
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+            (i + j) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE) : SetConsoleTextAttribute(hOutput, BLACK);
             wprintf(L"  ");
             printPiece(board[i][j], (i + j) % 2);
             wprintf(L"  ");
         }
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+        SetConsoleTextAttribute(hOutput, BLACK);
         wprintf(L"   %c", y[i]);
-        switch(i){
-            case 1:
-                wprintf(L"\t Taken white pieces:\n");
-                break;
-            case 2:
-                wprintf(L"\t ");
-                for(int k = 0; k < numTaken; k++){
-                    for(int l = 0; l < 6; l++){
-                        if(taken[k] == whitePieces[l]){
-                            printPiece(taken[k], 1);
-                            wprintf(L" ", taken[k]);
-                            }
-                    }
-                }
-                wprintf(L"\n");
-                break;
-            case 4:
-                wprintf(L"\t Taken black pieces:\n");
-                break;
-            case 5:
-                wprintf(L"\t ");
-                for(int k = 0; k < numTaken; k++){
-                    for(int l = 0; l < 6; l++){
-                        if(taken[k] == blackPieces[l]){
-                            printPiece(taken[k], 1);
-                            wprintf(L" ", taken[k]);
-                        }
-                    }
-                }
-                wprintf(L"\n");
-                break;
-            default:
-                wprintf(L"\n");
-                break;
-        }
-        wprintf(L"    ");
+        wprintf(L"\n    ");
         for(j = 0; j < 8; j++){
-            if((i + j) % 2 == 0)
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY);
-            else
-                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+            (i + j) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE) : SetConsoleTextAttribute(hOutput, BLACK);
             wprintf(L"      ");
         }
-        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+        SetConsoleTextAttribute(hOutput, BLACK);
         wprintf(L"\n");
     }
     wprintf(L"\n      ");
     for(i = 0; i < 8; i++)
         wprintf(L"%c     ", x[i]);
+
+    coord.X = 75; coord.Y = 3;
+    SetConsoleCursorPosition(hOutput, coord);
+    turn == 0 ? wprintf(L"White's turn"):wprintf(L"Black's turn");
+    coord.X = 72; coord.Y = 8;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"Taken white pieces:");
+    coord.X = 72; coord.Y = 13;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"Taken black pieces:");
+    coord.X = 62; coord.Y = 10;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"                                             ");
+    SetConsoleCursorPosition(hOutput, coord);
+    for(int i = 0; i < numTaken; i++){
+        for(int j = 0; j < 6; j++){
+            if(taken[i] == whitePieces[j]){
+                printPiece(taken[i], 1);
+                wprintf(L" ");
+            }
+        }
+    }
+    coord.X = 62; coord.Y = 15;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"                                             ");
+    SetConsoleCursorPosition(hOutput, coord);
+    for(int i = 0; i < numTaken; i++){
+        for(int j = 0; j < 6; j++){
+            if(taken[i] == blackPieces[j]){
+                printPiece(taken[i], 1);
+                wprintf(L" ");
+            }
+        }
+    }
+}
+
+int updateBoard(int x1, int y1, int x2, int y2){
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    COORD coord;
+    coord.X = 6 + x1*6; coord.Y = 3 + y1*3;
+    SetConsoleCursorPosition(hOutput, coord);
+    (x1 + y1) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE) : SetConsoleTextAttribute(hOutput, BLACK);
+    printPiece(board[y1][x1], (y1 + x1) % 2);
+    coord.X = 6 + x2*6; coord.Y = 3 + y2*3;
+    SetConsoleCursorPosition(hOutput, coord);
+    (x2 + y2) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE) : SetConsoleTextAttribute(hOutput, BLACK);
+    printPiece(board[y2][x2], (y2 + x2) % 2);
+    SetConsoleTextAttribute(hOutput, BLACK);
+    coord.X = 0; coord.Y = 0;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"%d", counter);
+    coord.X = 62; coord.Y = 10;
+    SetConsoleCursorPosition(hOutput, coord);
+    for(int i = 0; i < numTaken; i++){
+        for(int j = 0; j < 6; j++){
+            if(taken[i] == whitePieces[j]){
+                printPiece(taken[i], 1);
+                wprintf(L" ");
+            }
+        }
+    }
+    coord.X = 62; coord.Y = 15;
+    SetConsoleCursorPosition(hOutput, coord);
+    for(int i = 0; i < numTaken; i++){
+        for(int j = 0; j < 6; j++){
+            if(taken[i] == blackPieces[j]){
+                printPiece(taken[i], 1);
+                wprintf(L" ");
+            }
+        }
+    }
+    coord.X = 75; coord.Y = 3;
+    SetConsoleCursorPosition(hOutput, coord);
+    turn == 0 ? wprintf(L"White"):wprintf(L"Black");
+    coord.X = 75; coord.Y = 5;
+    SetConsoleCursorPosition(hOutput, coord);
+    wprintf(L"          ");
+    SetConsoleCursorPosition(hOutput, coord);
+    if(counter == 80){
+        wprintf(L"Draw");
+        return 1;
+    }
+    if(staleMate())
+        return 1;
+    if(check){
+        if(!(checkMate())){
+            wprintf(L"Check king");
+        }
+        else{
+            turn == 0 ? wprintf(L"Black Wins"):wprintf(L"White wins");
+            return 1;
+        }
+    }
+    return 0;
 }
 
 
 int main(){
     SetConsoleTitle("Chess");
+    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_FONT_INFOEX cfi;
     cfi.cbSize = sizeof(cfi);
     cfi.nFont = 0;
     cfi.dwFontSize.X = 0;
-    cfi.dwFontSize.Y = 24;
+    cfi.dwFontSize.Y = 16;
     cfi.FontFamily = TMPF_TRUETYPE;
     cfi.FontWeight = FW_NORMAL;
     wcscpy(cfi.FaceName, L"MS Gothic");
-    SetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), FALSE, &cfi);
+    SetCurrentConsoleFontEx(hOutput, FALSE, &cfi);
     _setmode(_fileno(stdout), _O_U16TEXT);
     ShowWindow(GetConsoleWindow(), SW_SHOWMAXIMIZED);
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(hOutput, &csbi);
+    while(!(csbi.dwMaximumWindowSize.Y > 27 && csbi.dwMaximumWindowSize.Y < 30 && csbi.dwMaximumWindowSize.X > 110 && csbi.dwMaximumWindowSize.X < 115)){
+        cfi.dwFontSize.Y++;
+        SetCurrentConsoleFontEx(hOutput, FALSE, &cfi);
+        GetConsoleScreenBufferInfo(hOutput, &csbi);
+    }
+    SetWindowLong(GetConsoleWindow(), GWL_STYLE, GetWindowLong(GetConsoleWindow(), GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_MINIMIZEBOX);
+    SetConsoleMode(hInput, ENABLE_EXTENDED_FLAGS | ENABLE_MOUSE_INPUT);
+    CONSOLE_CURSOR_INFO cci;
+    cci.dwSize = 50;
+    cci.bVisible = FALSE;
+    SetConsoleCursorInfo(hOutput, &cci);
 
     // First undo move
     for(int y = 0; y < 8; y++){
@@ -1011,11 +1176,14 @@ int main(){
     undoCheck[0] = 0;
     for(int i = 0; i < 6; i++)
         undoCastling[0][i] = castling[i];
+
+    printBoard();
+    drawButton(0, 1);
+    drawButton(1, 1);
+    drawButton(2, 1);
     while(1){
-        printBoard();
         if(getInput())
             break;
-        system("cls");
     }
     // To display the last message before termination(e.g. Stalemate, White wins.. etc)
     getchar();
