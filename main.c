@@ -2,17 +2,13 @@
 #include <io.h>
 #include "chess.h"
 #include "gui.h"
+#include "arraylist.h"
 
 struct state state;
+ArrayList *undoList;
 
 char whitePieces[6] = {'P','R','N','B','Q','K'};
 char blackPieces[6] = {'p','r','n','b','q','k'};
-
-char undoBoard[80][8][8];
-int undoTaken[80];
-int undoCheck[80];
-int undoCastling[80][6];
-int firstUndo = 0;
 
 
 void initGame() {
@@ -26,28 +22,16 @@ void initGame() {
         {'P','P','P','P','P','P','P','P'},
         {'R','N','B','Q','K','B','N','R'}};
 
-    for (int y = 0; y < 8; y++) {
-        for (int x = 0; x < 8; x++)
-            state.board[y][x] = initialBoard[y][x];
-    }
-
+    memcpy(state.board, initialBoard, sizeof(initialBoard));
     state.counter = 0;
     state.turn = WHITE;
     state.check = 0;
     state.numTaken = 0;
-
     for (int i = 0; i < 6; i++)
         state.castling[i] = 0;
 
-    // First undo move
-    for (int y = 0; y < 8; y++) {
-        for (int x = 0; x < 8; x++)
-            undoBoard[0][y][x] = state.board[y][x];
-    }
-    undoTaken[0] = 0;
-    undoCheck[0] = 0;
-    for(int i = 0; i < 6; i++)
-        undoCastling[0][i] = state.castling[i];
+    undoList = createArrayList();
+    add(undoList, state);
 }
 
 void move(int x1, int y1, int x2, int y2, char pieceSwap) {
@@ -87,15 +71,7 @@ void move(int x1, int y1, int x2, int y2, char pieceSwap) {
     state.turn = !state.turn;
     state.counter++;
     refresh(&state);
-
-    for(int y = 0; y < 8; y++){
-        for(int x = 0; x < 8; x++)
-            undoBoard[state.counter][y][x] = state.board[y][x];
-    }
-    undoTaken[state.counter] = state.numTaken;
-    undoCheck[state.counter] = state.check;
-    for(int i = 0; i < 6; i++)
-        undoCastling[state.counter][i] = state.castling[i];
+    add(undoList, state);
 }
 
 void castle(enum move_type type){
@@ -137,14 +113,7 @@ void castle(enum move_type type){
     state.turn = !state.turn;
     state.counter++;
     refresh(&state);
-    for(int y = 0; y < 8; y++){
-        for(int x = 0; x < 8; x++)
-            undoBoard[state.counter][y][x] = state.board[y][x];
-    }
-    undoTaken[state.counter] = state.numTaken;
-    undoCheck[state.counter] = state.check;
-    for(int i = 0; i < 6; i++)
-        undoCastling[state.counter][i] = state.castling[i];
+    add(undoList, state);
 }
 
 enum move_type valid(int x1, int y1, int x2, int y2) {
@@ -520,19 +489,8 @@ int isBlackPiece(char piece) {
 }
 
 void undo(){
-    if(state.counter > firstUndo){
-        state.counter--;
-        state.turn = !state.turn;
-        for(int y = 0; y < 8; y++){
-            for(int x = 0; x < 8; x++)
-                state.board[y][x] = undoBoard[state.counter][y][x];
-        }
-        state.numTaken = undoTaken[state.counter];
-        state.check = undoCheck[state.counter];
-        for(int i = 0; i < 6; i++)
-            state.castling[i] = undoCastling[state.counter][i];
-        refresh(&state);
-    }
+    state = pop(undoList);
+    refresh(&state);
 }
 
 void save() {
@@ -550,19 +508,14 @@ void load() {
     fp = fopen("SaveData.txt", "rb");
     if(fp == NULL)
         exit(1);
-    fread(&state, sizeof(state), 1, fp);
-    firstUndo = state.counter;
-    for(int y = 0; y < 8; y++){
-        for(int x = 0; x < 8; x++)
-           undoBoard[state.counter][y][x] = state.board[y][x];
-    }
-    undoCheck[state.counter] = state.check;
-    undoTaken[state.counter] = state.numTaken;
 
-    for(int i = 0; i < 6; i++)
-        undoCastling[state.counter][i] = state.castling[i];
+    fread(&state, sizeof(state), 1, fp);
     fclose(fp);
+
     refresh(&state);
+    destroyArrayList(undoList);
+    undoList = createArrayList();
+    add(undoList, state);
 }
 
 
@@ -574,6 +527,8 @@ int main() {
         if(getInput())
             break;
     }
+    destroyArrayList(undoList);
+
     // To display the last message before termination(e.g. Stalemate, White wins.. etc)
     getchar();
     return 0;
