@@ -3,23 +3,28 @@
 #define WHITE 0
 #define BLACK 1
 
-struct state
-{
+#define WHITE_KING 0b1
+#define LEFT_WHITE_ROOK 0b10
+#define RIGHT_WHITE_ROOK 0b100
+#define BLACK_KING 0b1000
+#define LEFT_BLACK_ROOK 0b10000
+#define RIGHT_BLACK_ROOK 0b100000
+
+struct state {
     char board[8][8];
     int counter;
     int turn;
     int check;
-    
+
     // Taken pieces
     int numTaken;
     char taken[30];
-    
-    // Left black rook, black king, right black rook, left white rook, white king, right white rook
-    int castling[6];
+
+    // Castling rights
+    int movedPieces;
 };
 
-enum move_type
-{
+enum move_type {
     INVALID,
     NORMAL,
     CASTLE_SHORT,

@@ -1,15 +1,14 @@
 #pragma once
 
+#include "chess.h"
+#include <fcntl.h>
 #include <stdio.h>
 #include <windows.h>
-#include <fcntl.h>
-#include "chess.h"
 
 #define WHITE_BACKGROUND BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY
 #define BLACK_BACKGROUND FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED
 
-struct button
-{
+struct button {
     char label[5];
     COORD pos;
 };

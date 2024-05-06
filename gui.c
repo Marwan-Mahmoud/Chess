@@ -6,8 +6,7 @@ HANDLE hOutput;
 struct button buttons[3] = {{"Undo", {63, 18}}, {"Save", {77, 18}}, {"Load", {91, 18}}};
 struct button pieces[4] = {{"Rr", {75, 23}}, {"Nn", {79, 23}}, {"Bb", {83, 23}}, {"Qq", {87, 23}}};
 
-void initGUI(struct state *state)
-{
+void initGUI(struct state *state) {
     hInput = GetStdHandle(STD_INPUT_HANDLE);
     hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     setup();
@@ -20,8 +19,7 @@ void initGUI(struct state *state)
         drawButton(buttons[i], 0);
 }
 
-void setup()
-{
+void setup() {
     RECT rect;
     HWND hConsole = GetConsoleWindow();
     GetWindowRect(hConsole, &rect);
@@ -48,8 +46,7 @@ void setup()
     SetConsoleCursorInfo(hOutput, &cci);
 }
 
-void initBoard()
-{
+void initBoard() {
     char x[8] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'};
     char y[8] = {'1', '2', '3', '4', '5', '6', '7', '8'};
 
@@ -60,19 +57,16 @@ void initBoard()
         wprintf(L"%c     ", x[i]);
     wprintf(L"\n\n");
 
-    for (int i = 0; i < 8; i++)
-    {
+    for (int i = 0; i < 8; i++) {
         wprintf(L"    ");
-        for (int j = 0; j < 8; j++)
-        {
+        for (int j = 0; j < 8; j++) {
             (i + j) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE_BACKGROUND) : SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
             wprintf(L"      ");
         }
 
         SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
         wprintf(L"\n%c   ", y[i]);
-        for (int j = 0; j < 8; j++)
-        {
+        for (int j = 0; j < 8; j++) {
             (i + j) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE_BACKGROUND) : SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
             wprintf(L"      ");
         }
@@ -80,8 +74,7 @@ void initBoard()
         wprintf(L"   %c\n", y[i]);
 
         wprintf(L"    ");
-        for (int j = 0; j < 8; j++)
-        {
+        for (int j = 0; j < 8; j++) {
             (i + j) % 2 == 0 ? SetConsoleTextAttribute(hOutput, WHITE_BACKGROUND) : SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
             wprintf(L"      ");
         }
@@ -94,8 +87,7 @@ void initBoard()
         wprintf(L"%c     ", x[i]);
 }
 
-void refresh(struct state *state)
-{
+void refresh(struct state *state) {
     printBoard(state->board);
     printCurrentTurn(state->counter, state->turn);
     printTakenPieces(state->numTaken, state->taken);
@@ -103,8 +95,7 @@ void refresh(struct state *state)
 }
 
 // Get coordinate
-void getCoor(char board[8][8], int turn, COORD *boardPosition)
-{
+void getCoor(char board[8][8], int turn, COORD *boardPosition) {
     INPUT_RECORD InputRecord;
     DWORD Events;
     ReadConsoleInput(hInput, &InputRecord, 1, &Events);
@@ -112,20 +103,15 @@ void getCoor(char board[8][8], int turn, COORD *boardPosition)
     static int hoveredButton = -1;
 
     // Check if mouse is on a button
-    for (int i = 0; i < 3; i++)
-    {
-        if (mousePosition.X >= buttons[i].pos.X && mousePosition.X <= buttons[i].pos.X + 11 && mousePosition.Y >= buttons[i].pos.Y && mousePosition.Y <= buttons[i].pos.Y + 3)
-        {
-            if (hoveredButton == -1)
-            {
+    for (int i = 0; i < 3; i++) {
+        if (mousePosition.X >= buttons[i].pos.X && mousePosition.X <= buttons[i].pos.X + 11 && mousePosition.Y >= buttons[i].pos.Y && mousePosition.Y <= buttons[i].pos.Y + 3) {
+            if (hoveredButton == -1) {
                 hoveredButton = i;
                 drawButton(buttons[i], 1);
                 break;
             }
-            if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED)
-            {
-                switch (i)
-                {
+            if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED) {
+                switch (i) {
                 case 0:
                     undo();
                     break;
@@ -139,21 +125,16 @@ void getCoor(char board[8][8], int turn, COORD *boardPosition)
             }
         }
     }
-    if (hoveredButton != -1 && !(mousePosition.X >= buttons[hoveredButton].pos.X && mousePosition.X <= buttons[hoveredButton].pos.X + 11 && mousePosition.Y >= buttons[hoveredButton].pos.Y && mousePosition.Y <= buttons[hoveredButton].pos.Y + 3))
-    {
+    if (hoveredButton != -1 && !(mousePosition.X >= buttons[hoveredButton].pos.X && mousePosition.X <= buttons[hoveredButton].pos.X + 11 && mousePosition.Y >= buttons[hoveredButton].pos.Y && mousePosition.Y <= buttons[hoveredButton].pos.Y + 3)) {
         drawButton(buttons[hoveredButton], 0);
         hoveredButton = -1;
     }
 
     // Check if mouse is clicked on board
-    if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED)
-    {
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                if (mousePosition.X >= (4 + x * 6) && mousePosition.X <= (9 + x * 6) && mousePosition.Y >= (2 + y * 3) && mousePosition.Y <= (4 + y * 3))
-                {
+    if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED) {
+        for (int y = 0; y < 8; y++) {
+            for (int x = 0; x < 8; x++) {
+                if (mousePosition.X >= (4 + x * 6) && mousePosition.X <= (9 + x * 6) && mousePosition.Y >= (2 + y * 3) && mousePosition.Y <= (4 + y * 3)) {
                     boardPosition->X = x;
                     boardPosition->Y = y;
                     drawActiveSquare(x, y);
@@ -163,8 +144,7 @@ void getCoor(char board[8][8], int turn, COORD *boardPosition)
     }
 }
 
-char getPromotionPiece(int turn)
-{
+char getPromotionPiece(int turn) {
     INPUT_RECORD InputRecord;
     DWORD Events;
     int hoveredButton = -1;
@@ -173,29 +153,23 @@ char getPromotionPiece(int turn)
     for (int i = 0; i < 4; i++)
         drawPieceButton(pieces[i].label[turn], pieces[i].pos, 0);
 
-    while (1)
-    {
+    while (1) {
         ReadConsoleInput(hInput, &InputRecord, 1, &Events);
         COORD coord = InputRecord.Event.MouseEvent.dwMousePosition;
-        for (int i = 0; i < 4; i++)
-        {
-            if (coord.X >= pieces[i].pos.X && coord.X <= pieces[i].pos.X + 3 && coord.Y >= pieces[i].pos.Y && coord.Y <= pieces[i].pos.Y + 2)
-            {
-                if (hoveredButton == -1)
-                {
+        for (int i = 0; i < 4; i++) {
+            if (coord.X >= pieces[i].pos.X && coord.X <= pieces[i].pos.X + 3 && coord.Y >= pieces[i].pos.Y && coord.Y <= pieces[i].pos.Y + 2) {
+                if (hoveredButton == -1) {
                     hoveredButton = i;
                     drawPieceButton(pieces[i].label[turn], pieces[i].pos, 1);
                     break;
                 }
-                if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
-                {
+                if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
                     char p = pieces[i].label[turn];
                     hoveredButton = -1;
-                    
+
                     // Clear promotion buttons
                     coord = pieces[0].pos;
-                    for (int i = 0; i < 3; i++)
-                    {
+                    for (int i = 0; i < 3; i++) {
                         SetConsoleCursorPosition(hOutput, coord);
                         wprintf(L"                ");
                         coord.Y++;
@@ -204,21 +178,17 @@ char getPromotionPiece(int turn)
                 }
             }
         }
-        if (hoveredButton != -1 && !(coord.X >= pieces[hoveredButton].pos.X && coord.X <= pieces[hoveredButton].pos.X + 3 && coord.Y >= pieces[hoveredButton].pos.Y && coord.Y <= pieces[hoveredButton].pos.Y + 2))
-        {
+        if (hoveredButton != -1 && !(coord.X >= pieces[hoveredButton].pos.X && coord.X <= pieces[hoveredButton].pos.X + 3 && coord.Y >= pieces[hoveredButton].pos.Y && coord.Y <= pieces[hoveredButton].pos.Y + 2)) {
             drawPieceButton(pieces[hoveredButton].label[turn], pieces[hoveredButton].pos, 0);
             hoveredButton = -1;
         }
     }
 }
 
-void printBoard(char board[8][8])
-{
+void printBoard(char board[8][8]) {
     COORD coord;
-    for (int y = 0; y < 8; y++)
-    {
-        for (int x = 0; x < 8; x++)
-        {
+    for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
             coord.X = 6 + x * 6;
             coord.Y = 3 + y * 3;
             SetConsoleCursorPosition(hOutput, coord);
@@ -229,8 +199,7 @@ void printBoard(char board[8][8])
     SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
 }
 
-void printCurrentTurn(int counter, int turn)
-{
+void printCurrentTurn(int counter, int turn) {
     COORD coord = {0, 0};
     SetConsoleCursorPosition(hOutput, coord);
     wprintf(L"   ");
@@ -242,8 +211,7 @@ void printCurrentTurn(int counter, int turn)
     turn == WHITE ? wprintf(L"White's turn") : wprintf(L"Black's turn");
 }
 
-void printTakenPieces(int numTaken, char taken[30])
-{
+void printTakenPieces(int numTaken, char taken[30]) {
     COORD coord = {72, 8};
     SetConsoleCursorPosition(hOutput, coord);
     wprintf(L"Taken white pieces:");
@@ -257,10 +225,8 @@ void printTakenPieces(int numTaken, char taken[30])
     SetConsoleCursorPosition(hOutput, coord);
     wprintf(L"                                             ");
     SetConsoleCursorPosition(hOutput, coord);
-    for (int i = 0; i < numTaken; i++)
-    {
-        if (isWhitePiece(taken[i]))
-        {
+    for (int i = 0; i < numTaken; i++) {
+        if (isWhitePiece(taken[i])) {
             printPiece(taken[i], BLACK);
             wprintf(L" ");
         }
@@ -271,25 +237,21 @@ void printTakenPieces(int numTaken, char taken[30])
     SetConsoleCursorPosition(hOutput, coord);
     wprintf(L"                                             ");
     SetConsoleCursorPosition(hOutput, coord);
-    for (int i = 0; i < numTaken; i++)
-    {
-        if (isBlackPiece(taken[i]))
-        {
+    for (int i = 0; i < numTaken; i++) {
+        if (isBlackPiece(taken[i])) {
             printPiece(taken[i], BLACK);
             wprintf(L" ");
         }
     }
 }
 
-void printMessage(char *message)
-{
+void printMessage(char *message) {
     COORD coord = {75, 5};
     SetConsoleCursorPosition(hOutput, coord);
     wprintf(L"%s", message);
 }
 
-void drawButton(struct button b, int hover)
-{
+void drawButton(struct button b, int hover) {
     SetConsoleTextAttribute(hOutput, BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | (BACKGROUND_INTENSITY * !hover));
 
     COORD coord = b.pos;
@@ -307,8 +269,7 @@ void drawButton(struct button b, int hover)
     SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
 }
 
-void drawPieceButton(char piece, COORD coord, int hover)
-{
+void drawPieceButton(char piece, COORD coord, int hover) {
     SetConsoleTextAttribute(hOutput, BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | (BACKGROUND_INTENSITY * !hover));
 
     SetConsoleCursorPosition(hOutput, coord);
@@ -327,8 +288,7 @@ void drawPieceButton(char piece, COORD coord, int hover)
     SetConsoleTextAttribute(hOutput, BLACK_BACKGROUND);
 }
 
-void drawActiveSquare(int x, int y)
-{
+void drawActiveSquare(int x, int y) {
     static int prevX = 0, prevY = 0;
 
     // Clear previous active square
@@ -345,9 +305,10 @@ void drawActiveSquare(int x, int y)
     coord.X += 5;
     SetConsoleCursorPosition(hOutput, coord);
     wprintf(L" ");
-    
+
     // Draw new active square
-    coord.X = 4 + x * 6; coord.Y = 2 + y * 3;
+    coord.X = 4 + x * 6;
+    coord.Y = 2 + y * 3;
     SetConsoleCursorPosition(hOutput, coord);
     SetConsoleTextAttribute(hOutput, ((WHITE_BACKGROUND) * !((y + x) % 2)) | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
     wprintf(L"\x2588\x2580\x2580\x2580\x2580\x2588");
@@ -365,10 +326,8 @@ void drawActiveSquare(int x, int y)
     prevX = x; prevY = y;
 }
 
-void printPiece(char piece, int tileColor)
-{
-    switch (piece)
-    {
+void printPiece(char piece, int tileColor) {
+    switch (piece) {
     case 'P':
         tileColor == WHITE ? wprintf(L"\x2659") : wprintf(L"\x265F");
         break;

@@ -2,8 +2,7 @@
 
 #define INITIAL_CAPACITY 25
 
-typedef struct ArrayList
-{
+typedef struct ArrayList {
     struct state *arr;
     int capacity;
     int size;
