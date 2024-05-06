@@ -32,9 +32,10 @@ enum move_type {
 };
 
 void initGame();
+void startGameLoop();
 
-void move(int x1, int y1, int x2, int y2, char pieceSwap);
-void castle(enum move_type type);
+int move(int x1, int y1, int x2, int y2, char pieceSwap);
+int castle(enum move_type type);
 enum move_type valid(int x1, int y1, int x2, int y2);
 enum move_type checkPawnMove(int x1, int y1, int x2, int y2);
 enum move_type checkKnightMove(int x1, int y1, int x2, int y2);
@@ -49,8 +50,6 @@ int checkGameStatus();
 int noLegalMoves();
 int draw();
 int isCheck();
-
-int getInput();
 
 int isWhitePiece(char piece);
 int isBlackPiece(char piece);

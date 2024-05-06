@@ -33,7 +33,40 @@ void initGame() {
     add(undoList, state);
 }
 
-void move(int x1, int y1, int x2, int y2, char pieceSwap) {
+void startGameLoop() {
+    COORD c1 = {-1, -1};
+    COORD c2 = {-1, -1};
+    
+    int gameEnded = 0;
+    while (!gameEnded) {
+        getCoor(state.board, state.turn, &c2);
+
+        int moveSuccessful = 0;
+        enum move_type type = valid(c1.X, c1.Y, c2.X, c2.Y);
+        if (type == NORMAL) {
+            char p = '\0';
+            if (isPromotion(c1.X, c1.Y, c2.X, c2.Y))
+                p = getPromotionPiece(state.turn);
+
+            moveSuccessful = move(c1.X, c1.Y, c2.X, c2.Y, p);
+        } else if (type == CASTLE_SHORT || type == CASTLE_LONG)
+            moveSuccessful = castle(type);
+        else
+            c1 = c2;
+
+        if (moveSuccessful) {
+            state.check = isCheck();
+            state.turn = !state.turn;
+            state.counter++;
+            refresh(&state);
+            add(undoList, state);
+            gameEnded = checkGameStatus();
+            c1.X, c1.Y, c2.X, c2.Y = -1;
+        }
+    }
+}
+
+int move(int x1, int y1, int x2, int y2, char pieceSwap) {
     char temp = state.board[y2][x2];
     if (state.board[y2][x2] != ' ')
         state.taken[state.numTaken++] = state.board[y2][x2];
@@ -47,7 +80,7 @@ void move(int x1, int y1, int x2, int y2, char pieceSwap) {
         state.board[y2][x2] = temp;
         if (state.board[y2][x2] != ' ')
             state.numTaken--;
-        return;
+        return 0;
     }
 
     if (x1 == 0 && y1 == 0)
@@ -66,14 +99,10 @@ void move(int x1, int y1, int x2, int y2, char pieceSwap) {
     if (pieceSwap)
         state.board[y2][x2] = pieceSwap;
 
-    state.check = isCheck();
-    state.turn = !state.turn;
-    state.counter++;
-    refresh(&state);
-    add(undoList, state);
+    return 1;
 }
 
-void castle(enum move_type type) {
+int castle(enum move_type type) {
     int y = state.turn == WHITE ? 7 : 0;
     state.turn = !state.turn;
     switch (type) {
@@ -82,7 +111,7 @@ void castle(enum move_type type) {
             for (int x1 = 0; x1 < 8; x1++) {
                 if (valid(x1, y1, 6, y) || valid(x1, y1, 5, y)) {
                     state.turn = !state.turn;
-                    return;
+                    return 0;
                 }
             }
         }
@@ -97,7 +126,7 @@ void castle(enum move_type type) {
             for (int x1 = 0; x1 < 8; x1++) {
                 if (valid(x1, y1, 2, y) || valid(x1, y1, 3, y)) {
                     state.turn = !state.turn;
-                    return;
+                    return 0;
                 }
             }
         }
@@ -108,11 +137,7 @@ void castle(enum move_type type) {
         state.board[y][0] = ' ';
         break;
     }
-    state.check = isCheck();
-    state.turn = !state.turn;
-    state.counter++;
-    refresh(&state);
-    add(undoList, state);
+    return 1;
 }
 
 enum move_type valid(int x1, int y1, int x2, int y2) {
@@ -307,11 +332,11 @@ enum move_type checkKingMove(int x1, int y1, int x2, int y2) {
 // To prevent killing pieces of the same color
 int checkSameColor(char p1, char p2) {
     switch (state.turn) {
-        case WHITE:
-            return isWhitePiece(p1) && isWhitePiece(p2);
-        case BLACK:
-            return isBlackPiece(p1) && isBlackPiece(p2);
-        }
+    case WHITE:
+        return isWhitePiece(p1) && isWhitePiece(p2);
+    case BLACK:
+        return isBlackPiece(p1) && isBlackPiece(p2);
+    }
     return 0;
 }
 
@@ -436,29 +461,6 @@ int isCheck() {
     return 0;
 }
 
-int getInput() {
-    static COORD c1 = {-1, -1};
-    static COORD c2 = {-1, -1};
-    getCoor(state.board, state.turn, &c2);
-    enum move_type type = valid(c1.X, c1.Y, c2.X, c2.Y);
-    if (type == NORMAL) {
-        char p = '\0';
-        if (isPromotion(c1.X, c1.Y, c2.X, c2.Y))
-            p = getPromotionPiece(state.turn);
-
-        move(c1.X, c1.Y, c2.X, c2.Y, p);
-        c1.X, c1.Y, c2.X, c2.Y = -1;
-        return checkGameStatus();
-    } else if (type == CASTLE_SHORT || type == CASTLE_LONG) {
-        castle(type);
-        c1.X, c1.Y, c2.X, c2.Y = -1;
-        return checkGameStatus();
-    } else {
-        c1 = c2;
-    }
-    return 0;
-}
-
 int isWhitePiece(char piece) {
     for (int i = 0; i < 6; i++) {
         if (piece == whitePieces[i])
@@ -508,11 +510,9 @@ void load() {
 int main() {
     initGame();
     initGUI(&state);
+    startGameLoop();
 
-    while (1) {
-        if (getInput())
-            break;
-    }
+    // Game ended, free the memory
     destroyArrayList(undoList);
 
     // To display the last message before termination(e.g. Stalemate, White wins.. etc)
