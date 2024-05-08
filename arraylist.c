@@ -32,6 +32,10 @@ struct state pop(ArrayList *list) {
     }
 }
 
+int size(ArrayList *list) {
+    return list->size;
+}
+
 void destroyArrayList(ArrayList *list) {
     free(list->arr);
     free(list);

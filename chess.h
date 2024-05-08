@@ -22,6 +22,9 @@ struct state {
 
     // Castling rights
     int movedPieces;
+
+    // Draw conditions
+    int passiveMoves;
 };
 
 enum move_type {

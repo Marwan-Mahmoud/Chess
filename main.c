@@ -26,6 +26,7 @@ void initGame() {
     state.counter = 0;
     state.turn = WHITE;
     state.check = 0;
+    state.passiveMoves = 0;
     state.numTaken = 0;
     state.movedPieces = 0;
 
@@ -36,7 +37,7 @@ void initGame() {
 void startGameLoop() {
     COORD c1 = {-1, -1};
     COORD c2 = {-1, -1};
-    
+
     int gameEnded = 0;
     while (!gameEnded) {
         getCoor(state.board, state.turn, &c2);
@@ -67,7 +68,7 @@ void startGameLoop() {
 }
 
 int move(int x1, int y1, int x2, int y2, char pieceSwap) {
-    char temp = state.board[y2][x2];
+    char oldPiece = state.board[y2][x2];
     if (state.board[y2][x2] != ' ')
         state.taken[state.numTaken++] = state.board[y2][x2];
     state.board[y2][x2] = state.board[y1][x1];
@@ -77,7 +78,7 @@ int move(int x1, int y1, int x2, int y2, char pieceSwap) {
     state.turn = !state.turn;
     if (state.check) {
         state.board[y1][x1] = state.board[y2][x2];
-        state.board[y2][x2] = temp;
+        state.board[y2][x2] = oldPiece;
         if (state.board[y2][x2] != ' ')
             state.numTaken--;
         return 0;
@@ -98,6 +99,11 @@ int move(int x1, int y1, int x2, int y2, char pieceSwap) {
 
     if (pieceSwap)
         state.board[y2][x2] = pieceSwap;
+
+    if (state.board[y2][x2] == 'P' || state.board[y2][x2] == 'p' || pieceSwap || oldPiece != ' ')
+        state.passiveMoves = 0;
+    else
+        state.passiveMoves++;
 
     return 1;
 }
@@ -357,11 +363,10 @@ int checkGameStatus() {
         else
             printMessage("Stalemate");
         return 1;
-    }
-
-    if (draw())
+    } else if (draw()) {
+        printMessage("Draw");
         return 1;
-
+    }
     return 0;
 }
 
@@ -402,37 +407,41 @@ int noLegalMoves() {
 }
 
 int draw() {
-    int i, j, k, m;
-    if (state.numTaken == 29) {
-        for (i = 0; i < 8; i++) {
-            for (j = 0; j < 8; j++) {
-                if (state.board[j][i] == 'N' || state.board[j][i] == 'n' || state.board[j][i] == 'B' || state.board[j][i] == 'b') {
-                    printMessage("Draw");
+    if (state.numTaken == 30) {
+        return 1;
+    } else if (state.numTaken == 29) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
+                if (state.board[j][i] == 'N' || state.board[j][i] == 'n' || state.board[j][i] == 'B' || state.board[j][i] == 'b')
                     return 1;
-                }
             }
         }
     } else if (state.numTaken == 28) {
-        for (i = 0; i < 8; i++) {
-            for (j = 0; j < 8; j++) {
+        for (int i = 0; i < 8; i++) {
+            for (int j = 0; j < 8; j++) {
                 if (state.board[j][i] == 'N' || state.board[j][i] == 'B') {
-                    for (k = 0; k < 8; k++) {
-                        for (m = 0; m < 8; m++) {
-                            if (state.board[m][k] == 'n' || state.board[m][k] == 'b') {
-                                printMessage("Draw");
+                    for (int k = 0; k < 8; k++) {
+                        for (int l = 0; l < 8; l++) {
+                            if (state.board[l][k] == 'n' || state.board[l][k] == 'b')
                                 return 1;
-                            }
                         }
                     }
                 }
             }
         }
-    } else if (state.numTaken == 30) {
-        printMessage("Draw");
+    } else if (state.passiveMoves == 50) {
         return 1;
-    } else if (state.counter == 80) {
-        printMessage("Draw");
-        return 1;
+    }
+
+    // Threefold repetition
+    int count = 0;
+    int n = size(undoList);
+    for (int i = 0; i < n; i++) {
+        struct state s = get(undoList, i);
+        if (memcmp(state.board, s.board, sizeof(state.board)) == 0)
+            count++;
+        if (count == 3)
+            return 1;
     }
     return 0;
 }
@@ -483,8 +492,7 @@ void undo() {
 }
 
 void save() {
-    FILE *fp;
-    fp = fopen("SaveData.txt", "wb");
+    FILE *fp = fopen("SaveData.txt", "wb");
     if (fp == NULL)
         exit(1);
 
@@ -493,8 +501,7 @@ void save() {
 }
 
 void load() {
-    FILE *fp;
-    fp = fopen("SaveData.txt", "rb");
+    FILE *fp = fopen("SaveData.txt", "rb");
     if (fp == NULL)
         exit(1);
 

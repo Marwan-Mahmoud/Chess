@@ -12,4 +12,5 @@ ArrayList *createArrayList();
 void add(ArrayList *list, struct state element);
 struct state get(ArrayList *list, int index);
 struct state pop(ArrayList *list);
+int size(ArrayList *list);
 void destroyArrayList(ArrayList *list);
