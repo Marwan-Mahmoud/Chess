@@ -7,9 +7,6 @@
 struct state state;
 ArrayList *undoList;
 
-char whitePieces[6] = {'P','R','N','B','Q','K'};
-char blackPieces[6] = {'p','r','n','b','q','k'};
-
 
 void initGame() {
     char initialBoard[8][8] = {
@@ -191,79 +188,20 @@ enum move_type valid(int x1, int y1, int x2, int y2) {
 }
 
 enum move_type checkPawnMove(int x1, int y1, int x2, int y2) {
-    switch (state.turn) {
-    case 0:
-        if ((y2 == y1 - 1) && (x1 == x2) && (state.board[y2][x2] == ' '))
-            return 1;
-        else if ((y2 == y1 - 2) && (y1 == 6) && (x1 == x2)) {
-            int valid = 1;
-            for (int i = y1 - 1; i >= y2; i--) {
-                if (!(state.board[i][x1] == ' ')) {
-                    valid = 0;
-                    break;
-                }
-            }
-            if (valid)
-                return 1;
-        } else if ((y2 == y1 - 1) && (x2 == x1 + 1)) {
-            int valid = 0;
-            for (int i = 0; i < 6; i++) {
-                if (state.board[y2][x2] == blackPieces[i]) {
-                    valid = 1;
-                    break;
-                }
-            }
-            if (valid)
-                return 1;
-        } else if ((y2 == y1 - 1) && (x2 == x1 - 1)) {
-            int valid = 0;
-            for (int i = 0; i < 6; i++) {
-                if (state.board[y2][x2] == blackPieces[i]) {
-                    valid = 1;
-                    break;
-                }
-            }
-            if (valid)
-                return 1;
-        }
-        break;
-    case 1:
-        if ((y2 == y1 + 1) && (x1 == x2) && (state.board[y2][x2] == ' '))
-            return 1;
-        else if ((y2 == y1 + 2) && (y1 == 1) && (x1 == x2)) {
-            int valid = 1;
-            for (int i = y1 + 1; i <= y2; i++) {
-                if (!(state.board[i][x1] == ' ')) {
-                    valid = 0;
-                    break;
-                }
-            }
-            if (valid)
-                return 1;
-        } else if ((y2 == y1 + 1) && (x2 == x1 + 1)) {
-            int valid = 0;
-            for (int i = 0; i < 6; i++) {
-                if (state.board[y2][x2] == whitePieces[i]) {
-                    valid = 1;
-                    break;
-                }
-            }
-            if (valid)
-                return 1;
-        } else if ((y2 == y1 + 1) && (x2 == x1 - 1)) {
-            int valid = 0;
-            for (int i = 0; i < 6; i++) {
-                if (state.board[y2][x2] == whitePieces[i]) {
-                    valid = 1;
-                    break;
-                }
-            }
-            if (valid)
-                return 1;
-        }
-        break;
+    int direction = (state.turn == WHITE) ? -1 : 1;
+    int dx = abs(x2 - x1);
+
+    if ((y2 == y1 + direction) && (x1 == x2) && (state.board[y2][x2] == ' '))
+        return NORMAL;
+    else if ((y2 == y1 + 2 * direction) && ((state.turn == WHITE && y1 == 6) || (state.turn == BLACK && y1 == 1)) && (x1 == x2)) {
+        if (state.board[y1 + direction][x2] == ' ' && state.board[y2][x2] == ' ')
+            return NORMAL;
+    } else if ((y2 == y1 + direction) && dx == 1) {
+        if ((state.turn == WHITE && isBlackPiece(state.board[y2][x2])) || (state.turn == BLACK && isWhitePiece(state.board[y2][x2])))
+            return NORMAL;
     }
-    return 0;
+
+    return INVALID;
 }
 
 enum move_type checkKnightMove(int x1, int y1, int x2, int y2) {
@@ -471,6 +409,7 @@ int isCheck() {
 }
 
 int isWhitePiece(char piece) {
+    char whitePieces[6] = {'P','R','N','B','Q','K'};
     for (int i = 0; i < 6; i++) {
         if (piece == whitePieces[i])
             return 1;
@@ -479,6 +418,7 @@ int isWhitePiece(char piece) {
 }
 
 int isBlackPiece(char piece) {
+    char blackPieces[6] = {'p','r','n','b','q','k'};
     for (int i = 0; i < 6; i++) {
         if (piece == blackPieces[i])
             return 1;
@@ -492,18 +432,18 @@ void undo() {
 }
 
 void save() {
-    FILE *fp = fopen("SaveData.txt", "wb");
+    FILE *fp = fopen("savedata", "wb");
     if (fp == NULL)
-        exit(1);
+        return;
 
     fwrite(&state, sizeof(state), 1, fp);
     fclose(fp);
 }
 
 void load() {
-    FILE *fp = fopen("SaveData.txt", "rb");
+    FILE *fp = fopen("savedata", "rb");
     if (fp == NULL)
-        exit(1);
+        return;
 
     fread(&state, sizeof(state), 1, fp);
     fclose(fp);
