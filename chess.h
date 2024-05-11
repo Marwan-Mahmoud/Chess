@@ -15,23 +15,21 @@ struct state {
     int counter;
     int turn;
     int check;
+    int enpassant;
+    int movedPieces; // Castling rights
+    int passiveMoves; // Draw conditions
 
-    // Taken pieces
+    // Captured pieces
     int numTaken;
     char taken[30];
-
-    // Castling rights
-    int movedPieces;
-
-    // Draw conditions
-    int passiveMoves;
 };
 
 enum move_type {
     INVALID,
     NORMAL,
     CASTLE_SHORT,
-    CASTLE_LONG
+    CASTLE_LONG,
+    EN_PASSANT,
 };
 
 void initGame();
@@ -39,6 +37,7 @@ void startGameLoop();
 
 int move(int x1, int y1, int x2, int y2, char pieceSwap);
 int castle(enum move_type type);
+int enPassant(int x1, int y1, int x2, int y2);
 enum move_type valid(int x1, int y1, int x2, int y2);
 enum move_type checkPawnMove(int x1, int y1, int x2, int y2);
 enum move_type checkKnightMove(int x1, int y1, int x2, int y2);

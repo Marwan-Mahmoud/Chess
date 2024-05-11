@@ -7,7 +7,6 @@
 struct state state;
 ArrayList *undoList;
 
-
 void initGame() {
     char initialBoard[8][8] = {
         {'r','n','b','q','k','b','n','r'},
@@ -23,6 +22,7 @@ void initGame() {
     state.counter = 0;
     state.turn = WHITE;
     state.check = 0;
+    state.enpassant = -1;
     state.passiveMoves = 0;
     state.numTaken = 0;
     state.movedPieces = 0;
@@ -49,6 +49,8 @@ void startGameLoop() {
             moveSuccessful = move(c1.X, c1.Y, c2.X, c2.Y, p);
         } else if (type == CASTLE_SHORT || type == CASTLE_LONG)
             moveSuccessful = castle(type);
+        else if (type == EN_PASSANT)
+            moveSuccessful = enPassant(c1.X, c1.Y, c2.X, c2.Y);
         else
             c1 = c2;
 
@@ -66,8 +68,6 @@ void startGameLoop() {
 
 int move(int x1, int y1, int x2, int y2, char pieceSwap) {
     char oldPiece = state.board[y2][x2];
-    if (state.board[y2][x2] != ' ')
-        state.taken[state.numTaken++] = state.board[y2][x2];
     state.board[y2][x2] = state.board[y1][x1];
     state.board[y1][x1] = ' ';
     state.turn = !state.turn;
@@ -76,10 +76,11 @@ int move(int x1, int y1, int x2, int y2, char pieceSwap) {
     if (state.check) {
         state.board[y1][x1] = state.board[y2][x2];
         state.board[y2][x2] = oldPiece;
-        if (state.board[y2][x2] != ' ')
-            state.numTaken--;
         return 0;
     }
+
+    if (oldPiece != ' ')
+        state.taken[state.numTaken++] = oldPiece;
 
     if (x1 == 0 && y1 == 0)
         state.movedPieces |= LEFT_BLACK_ROOK;
@@ -101,6 +102,11 @@ int move(int x1, int y1, int x2, int y2, char pieceSwap) {
         state.passiveMoves = 0;
     else
         state.passiveMoves++;
+
+    if ((state.board[y2][x2] == 'P' || state.board[y2][x2] == 'p') && abs(y2 - y1) == 2)
+        state.enpassant = x1;
+    else
+        state.enpassant = -1;
 
     return 1;
 }
@@ -140,6 +146,27 @@ int castle(enum move_type type) {
         state.board[y][0] = ' ';
         break;
     }
+    return 1;
+}
+
+int enPassant(int x1, int y1, int x2, int y2) {
+    char oldPiece = state.board[y1][x2];
+    state.board[y2][x2] = state.board[y1][x1];
+    state.board[y1][x1] = ' ';
+    state.board[y1][x2] = ' ';
+    state.turn = !state.turn;
+    state.check = isCheck();
+    state.turn = !state.turn;
+    if (state.check) {
+        state.board[y1][x1] = state.board[y2][x2];
+        state.board[y2][x2] = ' ';
+        state.board[y1][x2] = oldPiece;
+        return 0;
+    }
+
+    state.taken[state.numTaken++] = oldPiece;
+    state.passiveMoves = 0;
+    state.enpassant = -1;
     return 1;
 }
 
@@ -197,10 +224,21 @@ enum move_type checkPawnMove(int x1, int y1, int x2, int y2) {
         if (state.board[y1 + direction][x2] == ' ' && state.board[y2][x2] == ' ')
             return NORMAL;
     } else if ((y2 == y1 + direction) && dx == 1) {
-        if ((state.turn == WHITE && isBlackPiece(state.board[y2][x2])) || (state.turn == BLACK && isWhitePiece(state.board[y2][x2])))
-            return NORMAL;
+        switch (state.turn) {
+        case WHITE:
+            if (isBlackPiece(state.board[y2][x2]))
+                return NORMAL;
+            else if (state.board[y2][x2] == ' ' && x2 == state.enpassant && state.board[y1][x2] == 'p')
+                return EN_PASSANT;
+            break;
+        case BLACK:
+            if (isWhitePiece(state.board[y2][x2]))
+                return NORMAL;
+            else if (state.board[y2][x2] == ' ' && x2 == state.enpassant && state.board[y1][x2] == 'P')
+                return EN_PASSANT;
+            break;
+        }
     }
-
     return INVALID;
 }
 
@@ -409,7 +447,7 @@ int isCheck() {
 }
 
 int isWhitePiece(char piece) {
-    char whitePieces[6] = {'P','R','N','B','Q','K'};
+    char whitePieces[6] = {'P', 'R', 'N', 'B', 'Q', 'K'};
     for (int i = 0; i < 6; i++) {
         if (piece == whitePieces[i])
             return 1;
@@ -418,7 +456,7 @@ int isWhitePiece(char piece) {
 }
 
 int isBlackPiece(char piece) {
-    char blackPieces[6] = {'p','r','n','b','q','k'};
+    char blackPieces[6] = {'p', 'r', 'n', 'b', 'q', 'k'};
     for (int i = 0; i < 6; i++) {
         if (piece == blackPieces[i])
             return 1;
