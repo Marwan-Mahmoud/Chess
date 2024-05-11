@@ -20,10 +20,11 @@ void initGUI(struct state *state) {
 }
 
 void setup() {
-    RECT rect;
-    HWND hConsole = GetConsoleWindow();
-    GetWindowRect(hConsole, &rect);
-    int width = rect.right - rect.left;
+    HMONITOR hMonitor = MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFOEX monitorInfo;
+    monitorInfo.cbSize = sizeof(MONITORINFOEX);
+    GetMonitorInfo(hMonitor, (LPMONITORINFO)&monitorInfo);
+    int width = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
     CONSOLE_FONT_INFOEX cfi;
     cfi.cbSize = sizeof(cfi);
     cfi.nFont = 0;
@@ -35,6 +36,7 @@ void setup() {
     SetCurrentConsoleFontEx(hOutput, FALSE, &cfi);
 
     SetConsoleTitle("Chess");
+    HWND hConsole = GetConsoleWindow();
     ShowWindow(hConsole, SW_SHOWMAXIMIZED);
     SetWindowLong(hConsole, GWL_STYLE, GetWindowLong(hConsole, GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_MINIMIZEBOX);
     _setmode(_fileno(stdout), _O_U16TEXT);
