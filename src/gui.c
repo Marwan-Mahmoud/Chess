@@ -5,6 +5,7 @@ HANDLE hOutput;
 
 struct button buttons[3] = {{"Undo", {63, 18}}, {"Save", {77, 18}}, {"Load", {91, 18}}};
 struct button pieces[4] = {{"Rr", {75, 23}}, {"Nn", {79, 23}}, {"Bb", {83, 23}}, {"Qq", {87, 23}}};
+void (*guiFunctions[])() = {undo, save, load};
 
 void initGUI(struct state *state) {
     hInput = GetStdHandle(STD_INPUT_HANDLE);
@@ -112,19 +113,8 @@ void getCoor(char board[8][8], int turn, COORD *boardPosition) {
                 drawButton(buttons[i], 1);
                 break;
             }
-            if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED) {
-                switch (i) {
-                case 0:
-                    undo();
-                    break;
-                case 1:
-                    save();
-                    break;
-                case 2:
-                    load();
-                    break;
-                }
-            }
+            if (InputRecord.Event.MouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED && InputRecord.Event.MouseEvent.dwEventFlags != MOUSE_MOVED)
+                guiFunctions[i]();
         }
     }
     if (hoveredButton != -1 && !(mousePosition.X >= buttons[hoveredButton].pos.X && mousePosition.X <= buttons[hoveredButton].pos.X + 11 && mousePosition.Y >= buttons[hoveredButton].pos.Y && mousePosition.Y <= buttons[hoveredButton].pos.Y + 3)) {
